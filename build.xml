@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project name="ev3" default="clean" basedir=".">
+	
+	<!-- DEVELOPMENT SECTION -->
+	<property name="environment" value="EV3" />
+	<property name="project" value="ev3force"/>
+	<property name="version" value="0.1"/>	
+	<property name="base.dir" value="." />
+	<property name="src" location="src"/>
+	<property name="lib" location="${base.dir}/lib" />
+	<property name="build" location="build"/>
+	<property name="dist"  location="target"/>
+	<property name="dist.lib"  location="${dist}/lib"/>
+	<property name="logs" location="${base.dir}/logs" />
+
+	<!-- EV3 SSH SECTION -->
+	<property file="${basedir}/build.properties"/>
+	
+	<!-- EV3 LINUX SECTION -->
+	<property name="remotePath" value="/home/lejos/programs/"/>
+
+	<!-- CLASS SECTION -->
+	<property name="package" value="com.andyinthecloud.legoev3force.ev3kernal"/>
+	<property name="class" value="Main"/>
+		
+	<!-- TARGET SECTION -->
+	<target name="init">
+		<tstamp/>
+		<echo message="Initializating ANT."/>
+		<condition property="debugging">
+			<equals arg1="${environment}" arg2="LOCAL" />
+		</condition>		
+	</target>
+	
+	<target name="development" depends="init">
+		<tstamp/>
+		<echo message="Development phase."/>
+		<antcall target="infraestructure" />
+		<antcall target="packaging" />
+	</target>
+	
+	<target name="infraestructure">
+		<tstamp/>
+		<echo message="Initializating environment."/>
+		<antcall target="local-init" />		
+		<antcall target="remote-init" />
+	</target>
+	
+	<target name="local-init" description="Initializating local environment" >
+		<tstamp/>
+		<echo message="Initializating local environment."/>
+		<mkdir dir="${build}"/>
+		<mkdir dir="${logs}"/>
+		<mkdir dir="${dist}"/>
+		<mkdir dir="${dist.lib}"/>
+	</target>
+
+	<target name="remote-init" unless="debugging" description="Initializating local environment" >
+		<tstamp/>
+		<echo message="Initializating remote environment."/>
+	</target>
+	
+	<target name="bootstrap" description="Install missing jars">
+	    <mkdir dir="${user.home}/.ant/lib"/>
+	    <get src="http://search.maven.org/remotecontent?filepath=com/jcraft/jsch/0.1.48/jsch-0.1.48.jar" dest="${user.home}/.ant/lib/jsch.jar"/>
+	</target>
+	
+	<target name="compilation" description="Compile your project" >
+		<tstamp/>
+		<echo message="Compiling project."/>
+		<javac srcdir="${src}" destdir="${build}">
+			<classpath>
+				<fileset dir="${lib}">
+				        <include name="**/*.jar" />
+				</fileset>
+			</classpath>
+		</javac>
+	</target>
+	
+	<target name="packaging" depends="compilation" description="generate the distribution" >
+		<tstamp/>
+		<echo message="Packaging project."/>
+		<jar jarfile="${dist}/${project}.jar" basedir="${build}">
+			<zipgroupfileset dir="${basedir}/lib" includes="*.jar">
+				<exclude name="ev3classes.jar"/>
+			</zipgroupfileset>
+            <manifest>
+		    <attribute name="Built-By" value="${user.name}"/>
+				<attribute name="Specification-Title" value="${project}"/>
+				<attribute name="Specification-Version" value="${version}"/>
+				<attribute name="Specification-Vendor" value="JAB"/>
+            	<attribute name="Implementation-Title" value="${project}"/>
+            	<attribute name="Implementation-Version" value="${version} ${TODAY}"/> 
+				<attribute name="Implementation-Vendor" value="JAB"/>                
+		    	<attribute name="Main-Class" value="${package}.${class}"/>
+				<attribute name="Class-Path" value="
+					/home/root/lejos/lib/ev3classes.jar
+					/home/root/lejos/lib/dbusjava.jar
+					/home/root/lejos/libjna/usr/share/java/jna.jar
+					"			
+				/>
+            </manifest>
+		</jar>
+	</target>
+	
+	<target name="deployment" depends="development">
+		<tstamp/>
+		<echo message="Deployment phase."/>
+		<antcall target="run" />
+	</target>
+	
+	<target name="deploy" unless="debugging">
+		<tstamp/>
+		<echo message="Deploying software."/>
+		<antcall target="local-deployment" />
+		<antcall target="remote-deployment" />
+	</target>
+
+	<target name="local-deployment">
+		<tstamp/>
+		<echo message="Deploying in local."/>
+	</target>
+
+	<target name="remote-deployment">
+		<tstamp/>
+		<echo message="Deploying software into EV3 Brick."/>
+    	<scp file="${dist}/${project}.jar"
+    	     todir="${username}:@${host}:${remotePath}"
+    		 trust="true"
+		/>
+	</target>
+	
+	<target name="run" unless="debugging" depends="deploy">
+		<tstamp/>
+	</target>
+
+	<target name="local-run">
+		<tstamp/>
+		<echo message="Running software in local."/>
+	</target>
+				
+	<target name="remote-run">
+		<tstamp/>
+		<echo message="Running software in remote."/>
+		<sshexec host="${host}"
+			username="${username}"
+			password="${password}"
+			command="cd ${remotePath}; jrun -jar ${project}.jar"
+			trust="true"
+		/>
+	</target>
+	
+	<target name="clean" depends="deployment" description="Clean up" >
+		<delete dir="${build}"/>
+		<delete dir="${dist}"/>
+	</target>
+
+</project>
